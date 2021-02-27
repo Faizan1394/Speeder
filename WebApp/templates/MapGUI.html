@@ -1,0 +1,293 @@
+<html>
+	<head>
+		<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+			integrity="sha512-xodZBNTC5n17Xt2atTPuE1HxjVMSvLVW9ocqUKLsCC5CXdbqCmblAshOMAS6/keqq/sMZMZ19scR4PsZChSR7A=="
+			crossorigin=""/>
+	   
+		<!-- Make sure you put this AFTER Leaflet's CSS -->
+		<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"
+			integrity="sha512-XQoYMqMTK8LvdxXYG3nZ448hOEQiglfqkJs1NOQV44cWnUrBc8PkAOcXy20w0vlaXaVUearIOBhiXZ5V3ynxwA=="
+			crossorigin=""></script>
+			
+		<link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css')}}"/>
+		<title>Speeder - Your Path Planner Buddy</title>
+		<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+		<script type="text/javascript">
+		var arrHead = new Array();
+    arrHead = ['Locations','']; // table headers.
+
+    // first create a TABLE structure by adding few headers.
+    function createTable() {
+        var location = document.createElement('table');
+        location.setAttribute('id', 'location');  // table id.
+
+        var tr = location.insertRow(-1);
+
+        for (var h = 0; h < arrHead.length; h++) {
+            var th = document.createElement('th'); // the header object.
+            th.innerHTML = arrHead[h];
+            tr.appendChild(th);
+        }
+
+        var div = document.getElementById('textbox_div');
+        div.appendChild(location);    // add table to a container.
+		
+		addRow();
+		addRow();
+    }
+
+		 // function to add new row.
+    function addRow() {
+        var location = document.getElementById('location');
+
+        var rowCnt = location.rows.length;    // get the number of rows.
+        var tr = location.insertRow(rowCnt); // table row.
+        tr = location.insertRow(rowCnt);
+
+        for (var c = 0; c < arrHead.length; c++) {
+            var td = document.createElement('td');          // TABLE DEFINITION.
+            td = tr.insertCell(c);
+
+            if (c == 1) {   // if its the first column of the table.
+                // add a button control.
+                var button = document.createElement('input');
+
+                // set the attributes.
+                button.setAttribute('type', 'button');
+                button.setAttribute('value', 'Remove');
+
+                // add button's "onclick" event.
+                button.setAttribute('onclick', 'removeRow(this)');
+
+                td.appendChild(button);
+            }
+            else {
+                // the 2nd, 3rd and 4th column, will have textbox.
+                var ele = document.createElement('input');
+                ele.setAttribute('type', 'text');
+                ele.setAttribute('value', '');
+				ele.setAttribute('class', 'address');
+
+                td.appendChild(ele);
+            }
+        }
+		
+		var height = document.getElementById("summary_div").offsetHeight;
+		//console.log(height);
+		document.getElementById("summary_div").style.height = height - 25;
+    }
+
+    // function to delete a row.
+    function removeRow(oButton) {
+        var location = document.getElementById('location');
+        location.deleteRow(oButton.parentNode.parentNode.rowIndex); // buttton -> td -> tr
+		
+		var height = document.getElementById("summary_div").offsetHeight;
+		document.getElementById("summary_div").style.height = height + 25;
+    }
+
+    // Get locations data from the table
+    function getLocations() {
+        var myTab = document.getElementById('location');
+        var locations = new Array();
+
+        // loop through each row of the table.
+        for (row = 1; row < myTab.rows.length - 1; row++) {
+            // loop through each cell in a row.
+            for (c = 0; c < myTab.rows[row].cells.length; c++) {
+                var element = myTab.rows.item(row).cells[c];
+                if (element.childNodes[0].getAttribute('type') == 'text') {
+                    locations.push(element.childNodes[0].value);
+                    //alert(element.childNodes[0].value);
+                }
+            }
+        }
+        
+        // finally, show the result in the console.
+        console.log(locations);
+		
+		return locations
+    }
+	
+	var serverUrlPrefix = "localhost:8080/getdata";
+	
+	// Send data to the ML Model
+	function sendData(){
+			var drivers = $("#drivers").val();
+			var locations = getLocations();
+			
+			$.ajax({
+                    'url': '/getdata',
+					'type':'POST',
+                    'data': JSON.stringify({'drivers': drivers, 'locations': locations}),
+                    'success': function (data) { 
+						console.log(data);
+						var summaryDiv = document.getElementById('summary_div');
+						var height = summaryDiv.offsetHeight;
+						summaryDiv.remove();
+						
+						// Handle Summary
+						var leftDiv = document.getElementById('left');
+						
+						var summaryDiv = document.createElement('summary_div');
+						summaryDiv.style.height = height;
+						summaryDiv.setAttribute('id','summary_div');
+						summaryDiv.innerHTML = "<b>Route Summary</b>"
+						leftDiv.appendChild(summaryDiv);
+							
+						// Iterate through the locations data and show it on the map.
+						$.each(data.locations, function(idx, loc) {
+							console.log(loc);							
+							drawLines(loc.startingPointName, loc.endingPointName, loc.coordinates);
+							
+							var pathSummary = document.createElement('p');
+							pathSummary.innerHTML = loc.summary;
+							summaryDiv.appendChild(pathSummary);
+						});
+                    },
+					'contentType': "application/json",
+                    'dataType': 'json',                   
+                });
+	}
+		</script>
+	</head>
+	
+	<body onload="createTable()">
+		<div id="left">
+			<div id="logo"><img src="{{ url_for('static', filename='Logo.png')}}" alt="logo"/></div>
+			<div id="form_div">
+				<div id="textbox_div">
+					<form id="form1" method="get" action="">  
+						
+					</form>
+				</div>
+				<div id="buttons">
+					<input type="text" id="drivers" name="drivers" placeholder="Number of drivers"/><br><br>
+					<input type="button" name="addloc" value="Add Location" onclick="addRow()"/>
+					<input type="submit" name="Search Routes"  onclick="sendData()"/>
+				</div>
+			</div>
+			
+			<div id="summary_div">
+			</div>
+		</div>
+		
+		<div id="mapid"></div>
+		<script>
+			var map = L.map('mapid').setView([51.505, -0.09], 13);
+			
+			L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
+				attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Imagery © <a href="https://www.mapbox.com/">Mapbox</a>',
+				maxZoom: 18,
+				id: 'mapbox/streets-v11',
+				tileSize: 512,
+				zoomOffset: -1,
+				accessToken: 'pk.eyJ1IjoidXRzYXZ2YW5vZGl5YSIsImEiOiJja2xsazd3eGIwMDJjMnBxaXhwYzBpZm96In0.QjSyWKZ0_5O65xlX4cx0qQ'
+				}).addTo(map);
+				
+			/*
+			var marker = L.marker([43.9433, -78.8969]).addTo(map);
+			marker.bindPopup("<b>Durham College</b>").openPopup();
+			
+			var polygon = L.polygon([
+				[51.509, -0.08],
+				[51.503, -0.06],
+				[51.51, -0.047],
+				[51.61, -0.047]
+				]).addTo(map);
+				*/
+			// create a red polyline from an array of LatLng points
+			var latlngs = [
+				[43.90302, -78.94934],
+ [43.90391, -78.94969],
+ [43.90414, -78.94881],
+ [43.9044356, -78.9475582],
+ [43.9057112, -78.9426978],
+ [43.9059246, -78.9421041],
+ [43.906386, -78.9410528],
+ [43.9080293, -78.9398131],
+ [43.9093174, -78.9388471],
+ [43.91161, -78.93448],
+ [43.9152308, -78.9360707],
+ [43.91612, -78.93375],
+ [43.91722, -78.93224],
+ [43.91775, -78.92969],
+ [43.91894, -78.92914],
+ [43.9194318, -78.9271041],
+ [43.9206807, -78.9276331],
+ [43.9215542, -78.927781],
+ [43.92189, -78.92749],
+ [43.92214, -78.92655],
+ [43.9225035, -78.925025],
+ [43.9226064, -78.9244246],
+ [43.923342, -78.9212616],
+ [43.9239676, -78.9183999],
+ [43.9240111, -78.9182057],
+ [43.9240328, -78.9181111],
+ [43.9245833, -78.9156999],
+ [43.9247986, -78.9149332],
+ [43.924958, -78.9141492],
+ [43.926162, -78.9089493],
+ [43.9262651, -78.9083327],
+ [43.9262839, -78.9082408],
+ [43.9263722, -78.9082515],
+ [43.9267508, -78.9083716],
+ [43.9430467, -78.9155326],
+ [43.9436155, -78.9154965],
+ [43.9439194, -78.914629],
+ [43.9454576, -78.9076059],
+ [43.9457458, -78.9059392],
+ [43.9471678, -78.8995985],
+ [43.94626, -78.8992],
+ [43.94618, -78.89803],
+ [43.94607, -78.89592],
+ [43.9437411, -78.8949944]
+			];
+			
+			//var polyline = L.polyline(latlngs, {color: '#548eeb', weight:5}).addTo(map);
+
+			// zoom the map to the polyline
+			//map.fitBounds(polyline.getBounds());
+			
+			// Show markers for starting and ending points.
+			var greenIcon = new L.Icon({
+			  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+			  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+			  iconSize: [25, 41],
+			  iconAnchor: [12, 41],
+			  popupAnchor: [1, -34],
+			  shadowSize: [41, 41]
+			});
+			
+			var redIcon = new L.Icon({
+			  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+			  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+			  iconSize: [25, 41],
+			  iconAnchor: [12, 41],
+			  popupAnchor: [1, -34],
+			  shadowSize: [41, 41]
+			});
+
+			
+			//var startingPoint = L.marker(latlngs[0], {icon: greenIcon}).addTo(map);
+			//startingPoint.bindPopup("Starting Point").openPopup();
+			
+			//var endPoint = L.marker(latlngs[latlngs.length - 1], {icon: redIcon}).addTo(map);
+			//endPoint.bindPopup("End Point").openPopup();
+			
+			// Show markers and draw lines.
+			function drawLines(startingPointName, endingPointName, coordinates){
+				var startingPoint = L.marker(coordinates[0], {icon: greenIcon}).addTo(map);
+				startingPoint.bindPopup("<b>"+startingPointName+"</b>").openPopup();
+				
+				var endPoint = L.marker(coordinates[latlngs.length - 1], {icon: redIcon}).addTo(map);
+				endPoint.bindPopup("<b>"+endingPointName+"</b>").openPopup();
+				
+				var polyline = L.polyline(latlngs, {color: '#548eeb', weight:5}).addTo(map);
+
+				// zoom the map to the polyline
+				map.fitBounds(polyline.getBounds());
+			}
+		</script>
+	</body>
+</html>

@@ -1,0 +1,44 @@
+#mapid {
+	height: 100%;
+}
+
+#left {
+	float: left;
+	width: 350px;
+	height: 100%;
+	margin-right: 10px;	
+	background-color: #e3e3e3;
+}
+
+#logo {
+	width:230px;
+	margin:auto;
+	margin-top: 15px;
+}
+
+#form_div {
+	width:300px;
+	margin:auto;
+	margin-top:25px;
+	font-family: Arial
+}
+
+
+#summary_div {
+	width:95%;
+	margin:5px;
+	margin-top:25px;
+	font-family: Arial;
+	
+	display: inline-block;
+	overflow: scroll;
+	height: 480px;
+}
+
+.address {
+	width:225px;
+}
+
+#buttons {
+	margin:3px;
+}	
