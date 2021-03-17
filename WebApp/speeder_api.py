@@ -121,10 +121,10 @@ def get_coordinates(locations, drivers):
         
         dicts.append(info)
      
-  #  for i in range (len(dicts)):
+    #for i in range (len(dicts)):
      #   print(i)
       #  print(dicts[i])
-        #print("\n\n\n\n")
+       # print("\n\n\n\n")
      
         
     output = {

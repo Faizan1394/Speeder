@@ -343,65 +343,6 @@ def get_simple_route(route_df, segments):
         
 
 
-def print_route_summary_original(simplified_route, dest_dict, graph):
-    """
-    Display a simple summary with all relevant information for the driver.
-    """
-    # Get the destination nodes
-    destinations = simplified_route[simplified_route['Destination?']=='Yes']['End Node']
-    num_dest = len(destinations)
-    
-    print('You have {} locations to vist:'.format(num_dest))
-    # Using the dictionary, print off the destination addresses
-    for d in destinations:
-        for key, value in dest_dict.items():
-            if value == d:
-                print(key)
-    print('\nStart!')
-    
-    for ind in simplified_route.index:
-        # Display information for the leg of the route
-        direct = simplified_route['Direction'][ind]
-        name = simplified_route['Street Name'][ind]
-        length = simplified_route['Length'][ind]
-        speed = simplified_route['Speed'][ind]
-        print('Head {} on {} for {:.2f} metres at {} km/h.'.format(direct, name, length, speed))
-        # At the end of the leg, get the turn 
-        turn = simplified_route['Turn Direction'][ind]
-        # If there is no turn there are two cases - either it is marked "continue" - 
-        # in cases where a road changes speed or its name changes from west to east, for example - 
-        # or when we reach the last node on the route
-        is_dest = simplified_route['Destination?'][ind]
-        if turn == None and is_dest == 'No':
-            # If we aren't at a destination, write continue
-            if ind != simplified_route.index[-1]:
-                print('Continue')
-            else:
-                # Display no turn information when the route is finished 
-                pass
-        elif turn == None and is_dest == 'Yes':
-            # Have arrived at a destination.
-            destnode = simplified_route['End Node'][ind]
-            # Get the address 
-            for key, value in dest_dict.items():
-                if value == destnode:
-                    add = key
-            print('\nYou have reached a destination:', add)
-            # This destination is unlikely to be at an actual graph node, so we want to provide some info
-            # Get the coordinates of the node and the actual address
-            nodecoords = node_to_coords(graph, destnode)
-            addcoords = address_to_coord(add)
-            # Calculate the distance between these
-            dest_dist = geopy.distance.distance(nodecoords, addcoords).m
-            # Calculate the direction in which the destination will be
-            dest_dir = direction_between_points(nodecoords, addcoords)
-            print('It is {:.2f} metres to your {}.\n'.format(dest_dist, dest_dir))
-        else:
-            # If there is a turn, indicate it
-            print('Turn', turn.upper())
-    
-    print('You have visited all of your destinations!')
-
 def print_route_summary(simplified_route, dest_dict, graph):
     path = ""
     visitOrder=[]
@@ -418,7 +359,9 @@ def print_route_summary(simplified_route, dest_dict, graph):
         for key, value in dest_dict.items():
             if value == d:
                 path = path + "\n"+(key)
-                visitOrder.append(key)
+                latLong = node_to_coords(graph, value)
+                mydict = {key: latLong}
+                visitOrder.append(mydict)
     path = path+ "\n"+'\nStart!'
     
     for ind in simplified_route.index:
@@ -591,96 +534,3 @@ def get_customizations3():
 
 # Build the graph - this is Whitby/Oshawa for testing purposes - east, west, south, north
 G = build_graph(43.984503, 43.862879, -78.954552, -78.821660)
-
-def run_multi_opt_path():
-    """
-    This is the main function that takes all user inputs and returns the optimized routes 
-    for each of the drivers. 
-    """
-    # Get the user's starting location and destination
-    # If their input does not provide coordinates - if they enter a spelling of a street
-    # that does not exist - the address_to_coord function will alert them and here they will
-    # be reprompted for a valud address. 
-    while True:
-        start = get_starting_loc()
-        start = address_to_coord(start)
-        if start:
-            break
-    
-    # Get destination addresses 
-    dest = get_destinations()
-    # Get the coordinates of each
-    dest_coords = []
-    for i in dest:
-        dest_coords.append(address_to_coord(i))
-    
-    # Store the destination addresses and corresponding graph nodes
-    dest_dict = dest_address_and_node(G, dest)
-    
-    # Prompt user for the number of drivers    
-    num_drivers = int(input('How many drivers are available? (Ex: 2) '))
-    
-    # Cluster the destinations according to this number
-    clusters = cluster_destinations(dest_coords, num_drivers)
-    
-    # Get the user's customizations 
-    roads_to_avoid = get_customizations()
-    speeds_to_avoid = get_customizations2()
-    opt_type = get_customizations3()
-    
-    # Use the functions to remove necessary edges from the graph
-    G2 = avoid_a_street(G, roads_to_avoid)
-    G3 = avoid_a_roadtype(G2, speeds_to_avoid)
-    
-    # Convert locations into nodes
-    start_node = coords_to_node(G2, start)
-    # Get destination nodes
-    destination_nodes = []
-    for i in range(len(clusters)):
-        inodes = []
-        for x in clusters[i]:
-            inodes.append(coords_to_node(G, x))
-        destination_nodes.append(inodes)
-    
-    # For each driver, get their route
-    for driver in range(len(clusters)):
-        # Display the driver number
-        print('\n\nDriver', driver+1, 'Route:')
-        # Store their destination nodes 
-        your_dests = destination_nodes[driver]
-        # Create empty list of their visited destinations and their overall route
-        visited = []
-        route = []
-        # Use the algorithm to build these lists
-        aStarMulti(start_node, your_dests, G3, opt_type, visited, route)
-        
-        # Convert the list of lists into a single list
-        route_list = []
-        route_list.append(route[0][0])
-        for i in route:
-            for j in i:
-                if route_list[-1] != j:
-                    route_list.append(j)
-        
-        # Check if there is a route
-        if len(route_list) == 1:
-            print('There is no possible route with these specification.')
-            print('Please start over.')
-            break
-
-        # Get the full route information
-        full_route_df = full_route_info(G, route_list, visited)
-        # Add in the turns
-        route_df = add_turns(full_route_df, G)
-        # Get the breakpoints in this driver's route
-        break_points = get_break_points(route_df)
-        # Split their route into segments
-        segments = []
-        get_seg(0, segments, break_points, route_df)
-        # Simplify the route
-        simplified_route = get_simple_route(route_df, segments)
-        # Print the driver's route
-        print_route_summary(simplified_route, dest_dict, G)
-
-
-#run_multi_opt_path()
