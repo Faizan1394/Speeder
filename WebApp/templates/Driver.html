@@ -13,144 +13,20 @@
     <title>Speeder - Your Path Planner Buddy</title>
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script type="text/javascript">
-		var arrHead = new Array();
-    arrHead = ['Locations','']; // table headers.
-    avoidStreets = ['Streets to Avoid','']; // table headers.
-
-	function createTables(){
-	createTable('location', arrHead);
-	createTable('avoidStreets', avoidStreets);
-	}
-
-    // first create a TABLE structure by adding few headers.
-    function createTable(tableName, headers) {
-        var location = document.createElement('table');
-        location.setAttribute('id', tableName);  // table id.
-
-        var tr = location.insertRow(-1);
-
-        for (var h = 0; h < headers.length; h++) {
-            var th = document.createElement('th'); // the header object.
-			th.innerHTML = headers[h];
-            tr.appendChild(th);
-        }
-
-        var div = document.getElementById('textbox_div');
-        div.appendChild(location);    // add table to a container.
-		
-		addRow(tableName);
-		addRow(tableName);
-    }
-
-		 // function to add new row.
-    function addRow(tableName) {
-        var location = document.getElementById(tableName);
-
-        var rowCnt = location.rows.length;    // get the number of rows.
-        var tr = location.insertRow(rowCnt); // table row.
-        tr = location.insertRow(rowCnt);
-
-        for (var c = 0; c < arrHead.length; c++) {
-            var td = document.createElement('td');          // TABLE DEFINITION.
-            td = tr.insertCell(c);
-
-            if (c == 1) {   // if its the first column of the table.
-                // add a button control.
-                var button = document.createElement('input');
-
-                // set the attributes.
-                button.setAttribute('type', 'button');
-                button.setAttribute('value', 'Remove');
-
-                // add button's "onclick" event.
-                button.setAttribute('onclick', 'removeRow(this,"'+tableName+'")');
-
-                td.appendChild(button);
-            }
-            else {
-                // the 2nd, 3rd and 4th column, will have textbox.
-                var ele = document.createElement('input');
-                ele.setAttribute('type', 'text');
-                ele.setAttribute('value', '');
-				ele.setAttribute('class', 'address');
-
-                td.appendChild(ele);
-            }
-        }
-		
-		//var height = document.getElementById("summary_div").offsetHeight;
-		//console.log(height);
-		//document.getElementById("summary_div").style.height = height - 25;
-    }
-
-    // function to delete a row.
-    function removeRow(oButton, tableName) {
-        var location = document.getElementById(tableName);
-        location.deleteRow(oButton.parentNode.parentNode.rowIndex); // buttton -> td -> tr
-		
-		//var height = document.getElementById("summary_div").offsetHeight;
-		//document.getElementById("summary_div").style.height = height + 25;
-    }
-
-    // Get locations data from the table
-    function getLocations(tableName) {
-        var myTab = document.getElementById(tableName);
-        var locations = new Array();
-
-        // loop through each row of the table.
-        for (row = 1; row < myTab.rows.length - 1; row++) {
-            // loop through each cell in a row.
-            for (c = 0; c < myTab.rows[row].cells.length; c++) {
-                var element = myTab.rows.item(row).cells[c];
-                if (element.childNodes[0].getAttribute('type') == 'text') {
-                    locations.push(element.childNodes[0].value);
-                    //alert(element.childNodes[0].value);
-                }
-            }
-        }
-        
-        // finally, show the result in the console.
-        console.log(locations);
-		
-		return locations
-    }
-	
-	var serverUrlPrefix = "localhost:8080/getdata";
 	
 	// Send data to the ML Model
-	function sendData(){
-			var drivers = $("#drivers").val();
-			var locations = getLocations('location');
-			var streetsToAvoid = getLocations('avoidStreets');
-
-            var option = "";
-
-            if(document.getElementById('male').checked)
-                option = "any";
-            else if(document.getElementById('female').checked)
-                option = "distance";
-            else
-                option = "time";
-
+	function getDriverRoute(){
 			$.ajax({
-                    'url': '/getdata',
+                    'url': '/driver_details',
 					'type':'POST',
-                    'data': JSON.stringify({'drivers': drivers, 'locations': locations, 'streetsToAvoid': streetsToAvoid,
-                    'option':option}),
+                    'data': JSON.stringify({'id': 1}),
                     'success': function (data) { 
 						console.log(data);
-						//var summaryDiv = document.getElementById('summary_div');
-						//var height = summaryDiv.offsetHeight;
-						//summaryDiv.remove();
-								
+
 						// Iterate through the locations data and show it on the map.
 						$.each(data.locations, function(idx, loc) {
 							console.log(loc);							
 							addMap(loc.startingPointName, loc.endingPointName, loc.destinations, loc.coordinates, loc.summary);
-							
-							var pathSummary = document.createElement('p');
-							pathSummary.innerHTML = loc.summary;
-							summaryDiv.appendChild(pathSummary);
 						});
                     },
 					'contentType': "application/json",
@@ -158,43 +34,17 @@
                 });
 	}
 
+    document.addEventListener('DOMContentLoaded', function() {
+       getDriverRoute();
+    }, false);
 
     </script>
 </head>
 
-<body onload="createTables()">
-<div id="left">
-    <div id="logo"><img src="{{ url_for('static', filename='Logo.png')}}" alt="logo"/></div>
-    <div id="form_div">
-        <div id="textbox_div">
-            <form id="form1" method="get" action="">
-
-            </form>
-        </div>
-        <div id="buttons">
-            <input type="text" id="drivers" name="drivers" placeholder="Number of drivers"/><br><br>
-            <input type="button" name="addloc" value="Add Location" onclick="addRow('location')"/>
-            <input type="button" name="addavoidstreet" value="Add Street to Avoid" onclick="addRow('avoidStreets')"/>
-            <input type="submit" name="Search Routes" onclick="sendData()"/>
-        </div>
-    </div>
-	
-	<div id="options">
-		<form action="/action_page.php">
-		  <p>Options</p>
-		  <input type="radio" id="male" name="gender" value="male" checked="true">
-		  <label for="male">Any</label><br>
-		  <input type="radio" id="female" name="gender" value="female">
-		  <label for="female">Distance</label><br>
-		  <input type="radio" id="other" name="gender" value="other">
-		  <label for="other">Time</label>
-		</form>
-	</div>
+<body>
+<div id="map_container">
+    <div id="mapid"></div>
 </div>
-
-		<div id="map_container">
-			<div id="mapid"></div>
-		</div>
 <script>
 			// Dummy Map
 			//43.8971° N, 78.8658° 
@@ -310,8 +160,6 @@
 					// zoom the map to the polyline
 					map.fitBounds(polyline.getBounds());
 			}
-
-
 </script>
 </body>
 </html>
