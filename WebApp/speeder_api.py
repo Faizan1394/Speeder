@@ -1,7 +1,11 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template,redirect, url_for, request
+import functools
+from functools import wraps
 import optimalPath
 
 app = Flask(__name__)
+
+loggedIn = ""
 
 latlngs = [
     [43.90302, -78.94934],
@@ -51,11 +55,53 @@ latlngs = [
 ]
 
 
+#check to see if logged in as admin
+def admin_required(func):
+    @functools.wraps(func)
+    def secure_function():
+        if loggedIn != "admin":
+            print("not admin",loggedIn)
+            return redirect(url_for("index"))
+        return func()
+    return secure_function
+
+#redirect to the setup driver and destinations page
+@app.route('/admin')
+@admin_required
+def admin():
+    return render_template('MapGUI.html')
+
 @app.route('/')
 def index():
-    """ Displays the index page accessible at '/'
-    """
-    return render_template('MapGUI.html')
+    #return render_template('MapGUI.html')
+    return render_template('HomePage.html')
+
+
+
+# login functionality for admin and drivers
+@app.route('/login',methods=['GET', 'POST'])
+def login():
+    print("login attempted")
+    global loggedIn
+    error = None
+    if request.method == 'POST':
+        if request.form['username'] == 'admin' or request.form['password'] == 'admin':
+            loggedIn = "admin"
+            print("admin logged in")
+            return redirect(url_for("admin"))
+        elif(request.form['username'] == 'driver1' or request.form['password'] == 'driver1'):
+            loggedIn = "driver1"
+            return redirect(url_for("driver"))
+        elif(request.form['username'] == 'driver2' or request.form['password'] == 'driver2'):
+            loggedIn = "driver2"
+            return redirect(url_for("driver"))
+        elif(request.form['username'] == 'driver3' or request.form['password'] == 'driver3'):
+            loggedIn = "driver3"
+            return redirect(url_for("driver"))
+        else:
+            error = 'Invalid Credentials. Please try again.'
+
+    return render_template('HomePage.html', error=error)
 
 
 # Build the graph - this is Whitby/Oshawa for testing purposes - east, west, south, north
@@ -69,6 +115,12 @@ def get_coordinates(locations, drivers, streetsToAvoid, option):
     :param drivers: number of drivers
     :return:
     """
+
+    optimize = ""
+    if option == "time":
+        optimize = "travel_time"
+    else:
+        optimize = "length"
 
     # get the starting location and convert it to coordinates
     start = optimalPath.address_to_coord(locations[0])
@@ -85,8 +137,14 @@ def get_coordinates(locations, drivers, streetsToAvoid, option):
     # Cluster the destinations according to the number of drivers
     clusters = optimalPath.cluster_destinations(dest_coords, int(drivers))
 
+
+    G2 = optimalPath.avoid_a_street(G, streetsToAvoid)
+    # Use the functions to remove necessary edges from the graph
+    #G2 = optimalPath.avoid_a_street(G, streetsToAvoid)
+
+
     # Convert locations into nodes
-    start_node = optimalPath.coords_to_node(G, start)
+    start_node = optimalPath.coords_to_node(G2, start)
 
     # Get destination nodes
     destination_nodes = []
@@ -111,7 +169,7 @@ def get_coordinates(locations, drivers, streetsToAvoid, option):
         route = []
 
         # Use the a* multi algorithm to build these lists
-        optimalPath.aStarMulti(start_node, your_dests, G, 'travel_time', visited, route)
+        optimalPath.aStarMulti(start_node, your_dests, G2, optimize, visited, route)
 
         # Convert the list of lists into a single list
         route_list = []
@@ -151,15 +209,6 @@ def get_coordinates(locations, drivers, streetsToAvoid, option):
             nCord = optimalPath.node_to_coords(G, node)
             coordinates.append([nCord[0], nCord[1]])
 
-        # print(summary)
-        # print(visitOrder)
-
-        # dst =[]
-
-        # for i in visited:
-        #   dst.append(int(i))
-
-        print(route_df['Street Name'])
 
         info = {
             "startingPointName": route_df['Street Name'][0],
@@ -170,11 +219,6 @@ def get_coordinates(locations, drivers, streetsToAvoid, option):
         }
 
         dicts.append(info)
-
-    # for i in range (len(dicts)):
-    #   print(i)
-    #  print(dicts[i])
-    # print("\n\n\n\n")
 
     output = {
         "locations": dicts
