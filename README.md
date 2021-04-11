@@ -2,11 +2,11 @@
 
 <b>Website Link: http://speeder.azurewebsites.net/</b>
 
-<b>login:
+<b>login:</b>
       
       username: admin
       
-      password: admin</b>
+      password: admin
 
 Capstone 2 - Speeder : Route planning made easy. Save Time and Money, leave the heavy lifting to us
 
